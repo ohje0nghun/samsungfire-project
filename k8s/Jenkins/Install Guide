@@ -1,0 +1,10 @@
+helm 설치 & helm chart 다운 필요
+
+
+1. pv, pvc 파일 생성 후 생성
+
+2. values.yaml 파일 수정 후 아래 명령어 실행
+helm install jenkins jenkins/jenkins -n jenkins -f ./values.yaml
+
+3. 오프라인 기준 설치이기 때문에 플러그인 수동 설치 
+
