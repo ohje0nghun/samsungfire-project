@@ -1,0 +1,27 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: jenkins-2.401-pv
+spec:
+  capacity:
+    storage: 50Gi  # 원하는 용량 설정
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain  # PV 삭제 시 데이터를 유지
+  hostPath:
+    path: /data/jenkins-2.401  # Kubernetes 노드의 실제 경로
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: jenkins-2.401-pvc
+  namespace: jenkins
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 50Gi  # PV의 용량과 일치하게 설정
+  volumeName: jenkins-2.401-pv  # 위에서 정의한 PV 이름
+  storageClassName: ""
