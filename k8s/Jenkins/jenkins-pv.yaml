@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: PersistentVolume
 metadata:
-  name: jenkins-2.401-pv
+  name: jenkins-lts-pv
 spec:
   capacity:
     storage: 50Gi  # 원하는 용량 설정
@@ -9,7 +9,7 @@ spec:
     - ReadWriteOnce
   persistentVolumeReclaimPolicy: Retain  # PV 삭제 시 데이터를 유지
   hostPath:
-    path: /data/jenkins-2.401  # Kubernetes 노드의 실제 경로
+    path: /data/jenkins-lts  # Kubernetes 노드의 실제 경로
 
 ---
 apiVersion: v1
@@ -23,5 +23,5 @@ spec:
   resources:
     requests:
       storage: 50Gi  # PV의 용량과 일치하게 설정
-  volumeName: jenkins-2.401-pv  # 위에서 정의한 PV 이름
+  volumeName: jenkins-lts-pv  # 위에서 정의한 PV 이름
   storageClassName: ""
