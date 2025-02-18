@@ -1,10 +1,9 @@
-root@k8s-multiaz-001:~/work/k8s/jenkins/jenkins-2.401/jenkins-helm# cat values.yaml
 controller:
   # Jenkins 이미지 설정 (외부 레지스트리 사용)
   image:
     registry: "dockerhub.smart-devops.io"
     repository: "jenkins"
-    tag: "2.401"
+    tag: "lts"
 
   # Jenkins 관리자 사용자 설정
   admin:
@@ -59,4 +58,4 @@ agent:
 # 저장소 설정
 persistence:
   enabled: true
-  existingClaim: jenkins-2.401-pvc
+  existingClaim: jenkins-lts-pvc
