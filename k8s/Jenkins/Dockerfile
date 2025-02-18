@@ -1,24 +1,31 @@
-# ✅ 최신 LTS 버전 기반
 FROM jenkins/jenkins:2.492.1-lts
 
 # ✅ Root 권한 최소화 (기본적으로 `jenkins` 사용자 유지)
 USER root
 
-# ✅ 필수 패키지만 설치 (curl, git, kubectl, helm)
-# - `unzip`, `wget`, `jq`, `zip` 등의 불필요한 도구는 제거
-# - `--no-install-recommends` 옵션 사용하여 의존성 최소화
+# ✅ 필수 패키지만 설치 (git, curl, kubectl, helm, docker, podman)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     curl \
+    software-properties-common \
     && rm -rf /var/lib/apt/lists/*
 
 # ✅ Helm 설치 (Kubernetes 관련)
 RUN curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
 
-# ✅ kubectl 설치 (Kubernetes 관리용)
-RUN curl -LO "https://dl.k8s.io/release/$(curl -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" \
-    && chmod +x kubectl \
-    && mv kubectl /usr/local/bin/
+# ✅ kubectl 설치 (버전 명시적 지정)
+RUN KUBECTL_VERSION="v1.28.0" && \
+    curl -LO "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl" && \
+    chmod +x kubectl && \
+    mv kubectl /usr/local/bin/kubectl
+
+# ✅ Docker 설치
+RUN curl -fsSL https://get.docker.com | bash
+
+# ✅ Podman 설치 (공식 패키지 사용)
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends podman && \
+    rm -rf /var/lib/apt/lists/*
 
 # ✅ Jenkins 실행을 위한 권한 조정 (보안 강화)
 RUN chown -R jenkins:jenkins /var/jenkins_home \
