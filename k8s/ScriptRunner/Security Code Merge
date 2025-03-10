@@ -1,0 +1,67 @@
+import com.atlassian.bitbucket.hook.repository.RepositoryHookResult
+import com.atlassian.bitbucket.pull.PullRequestService
+import com.atlassian.bitbucket.pull.PullRequest
+import com.atlassian.bitbucket.repository.Repository
+import com.atlassian.sal.api.component.ComponentLocator
+import groovy.json.JsonSlurper
+
+def pullRequestService = ComponentLocator.getComponent(PullRequestService)
+def pullRequest = pullRequestService.getById(mergeRequest.pullRequest.toRef.repository.id, mergeRequest.pullRequest.id)
+def latestCommitId = pullRequest.fromRef.latestCommit
+def prId = pullRequest.id.toString()
+
+// ✅ 프로젝트 키 및 리포지토리 이름 가져오기 (하드코딩 제거)
+def repository = pullRequest.toRef.repository
+def projectKey = repository.project.key  // 프로젝트 키 동적 추출
+def repoSlug = repository.slug           // 리포지토리 이름 동적 추출
+
+// ✅ QA, Codemind, Changeminer 빌드 키 리스트 생성
+def jobNames = ["QA", "codemind", "changeminer"]
+def failedJobs = []
+
+if (pullRequest.toRef.displayId == 'develop' && pullRequest.fromRef.displayId.startsWith('feature/')) {
+    for (job in jobNames) {
+        // 🔥 하드코딩 없이 빌드 키를 동적으로 생성
+        def buildKey = "${prId}/${projectKey}/${repoSlug}/feature/${pullRequest.fromRef.displayId}/${job}"
+        def buildStatus = getBuildStatus(latestCommitId, buildKey)
+
+        // 상태가 "SUCCESSFUL"이 아니면 실패 목록에 추가
+        if (buildStatus == null || buildStatus in ['FAILED', 'INPROGRESS', 'NOT_BUILT']) {
+            failedJobs << job
+        }
+    }
+
+    // 만약 실패한 빌드가 있다면 Merge를 차단
+    if (failedJobs) {
+        return RepositoryHookResult.rejected(
+            "Merge Check Failed",
+            "다음 빌드가 완료되지 않았거나 실패했습니다: ${failedJobs.join(', ')}"
+        )
+    }
+}
+
+return RepositoryHookResult.accepted()
+
+// 🔍 최신 커밋의 빌드 상태를 가져오는 함수
+String getBuildStatus(String commitId, String buildKey) {
+    def bitbucketUrl = "https://bitbucket.smart-devops.io/rest/build-status/1.0/commits/${commitId}"
+    def connection = new URL(bitbucketUrl).openConnection()
+    connection.setRequestProperty("Authorization", "Basic " + "devadmin:tkatjdsfmi1!".bytes.encodeBase64().toString())
+
+    try {
+        def response = connection.inputStream.text
+        def jsonResponse = new JsonSlurper().parseText(response)
+
+        if (jsonResponse instanceof Map && jsonResponse.containsKey('values')) {
+            def buildEntries = jsonResponse.values
+            for (def entry : buildEntries) {
+                if (entry['key']?.toString() == buildKey) {
+                    return entry['state'] as String
+                }
+            }
+        }
+    } catch (Exception e) {
+        log.error "빌드 상태를 가져오는 중 오류가 발생했습니다: ${e.message}"
+    }
+    return null
+}
