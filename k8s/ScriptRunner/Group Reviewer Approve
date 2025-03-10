@@ -1,0 +1,64 @@
+import com.atlassian.bitbucket.hook.repository.RepositoryHookResult
+import com.atlassian.bitbucket.pull.PullRequestService
+import com.atlassian.bitbucket.pull.PullRequestParticipantStatus
+import com.atlassian.sal.api.component.ComponentLocator
+import groovy.json.JsonSlurper
+
+def pullRequestService = ComponentLocator.getComponent(PullRequestService)
+def pullRequest = pullRequestService.getById(mergeRequest.pullRequest.toRef.repository.id, mergeRequest.pullRequest.id)
+
+// 점검할 그룹
+def requiredGroup = "PJ20241380-Leader"
+
+// 리뷰어 중 APPROVED && requiredGroup 소속만 필터링
+def approvedGroupReviewers = pullRequest.reviewers.findAll { reviewer ->
+    reviewer.status == PullRequestParticipantStatus.APPROVED &&
+    isUserInGroupByRest(reviewer.user.name, requiredGroup)
+}
+
+if (approvedGroupReviewers.isEmpty()) {
+    return RepositoryHookResult.rejected(
+        "Not enough leader approvals",
+        "At least one reviewer from the '${requiredGroup}' group must approve this pull request."
+    )
+}
+
+// 모든 조건 통과 → Merge 허용
+return RepositoryHookResult.accepted()
+
+/**
+ * Bitbucket REST API를 통해 사용자가 특정 그룹에 속해 있는지 확인하는 함수
+ */
+boolean isUserInGroupByRest(String username, String groupName) {
+    try {
+        def urlString = "https://bitbucket.smart-devops.io/rest/api/latest/admin/groups/more-members?context=${groupName}&limit=9999"
+        def connection = new URL(urlString).openConnection()
+        connection.setRequestProperty("Authorization", "Basic " + "devadmin:tkatjdsfmi1!".bytes.encodeBase64().toString())
+
+        def response = connection.inputStream.text
+        def json = new JsonSlurper().parseText(response)
+
+        // <1> 미리 빈 리스트로 선언
+        def members = []
+        if (json instanceof Map && json.containsKey('values')) {
+            def rawValues = json['values']
+            if (rawValues instanceof List) {
+                // <2> collect에서 파라미터 타입 선언 없이 사용
+                def tempList = rawValues.collect {
+                    // it은 Object → 필요하면 instanceof 체크
+                    if (it instanceof Map) {
+                        return it['name']?.toString()
+                    }
+                    null
+                }
+                // <3> null 제거
+                members = tempList.findAll { it != null }
+            }
+        }
+
+        return members.contains(username)
+    } catch (Exception e) {
+        log.error "Error checking group membership via REST: ${e.message}"
+        return false
+    }
+}
