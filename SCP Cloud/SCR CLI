@@ -1,0 +1,196 @@
+scp-tool-cli 세팅
+
+./scp-tool-cli configure set access-key 9/U4d+nW3eOOazaxx9vV
+./scp-tool-cli configure set access-secret YXh4OXZWMDZPZEFCTEFZa2FmSnYzVlg2TWhFTE09
+./scp-tool-cli configure set cmp-url https://openapi.samsungsdscloud.com
+./scp-tool-cli configure set project-id PROJECT-aTukpUtUrspRqE2ODBgVPo
+
+./scp-tool-cli configure list // 세팅정보확인
+
+#호출결과
+root@k8s-multiaz-001:~/tools/scp-tool-cli-2.0.5/bin# ./scp-tool-cli configure list
+[default]
+cmp-url=https://openapi.samsungsdscloud.com
+access-secret=YXh4OXZWMDZPZEFCTEFZa2FmSnYzVlg2TWhFTE09
+output_format=json
+access-key=9/U4d+nW3eOOazaxx9vV
+project-id=PROJECT-aTukpUtUrspRqE2ODBgVPo
+
+
+
+
+scp-tool-cli 레지스트리 목록 확인
+./scp-tool-cli container-registry list-registries-v1
+
+#호출결과
+root@k8s-multiaz-001:~/tools/scp-tool-cli-2.0.5/bin# ./scp-tool-cli container-registry list-registries-v1 | jq .
+{
+  "totalCount": 1,
+  "contents": [
+    {
+      "projectId": "PROJECT-aTukpUtUrspRqE2ODBgVPo",
+      "registryId": "CONTAINER_REGISTRY_kr-west-ryjqdraw",
+      "registryName": "sfmiscr",
+      "region": "KR-WEST",
+      "bucketId": "S3_OBS_BUCKET-NUBBWy2CtgpTmEKUgQi5qk",
+      "registryStatus": "Running",
+      "createdBy": "15555",
+      "createdDt": "2025-02-28T01:47:54.000000Z",
+      "registryReplicationType": "Origin"
+    }
+  ]
+}
+
+
+
+
+리포지토리 목록 조회
+./scp-tool-cli container-registry list-repositories-v1 --registry-id CONTAINER_REGISTRY_kr-west-ryjqdraw --region KR-WEST
+
+
+#호출결과
+root@k8s-multiaz-001:~/tools/scp-tool-cli-2.0.5/bin# ./scp-tool-cli container-registry list-repositories-v1 --registry-id CONTAINER_REGISTRY_kr-west-ryjqdraw --region KR-WEST |jq .
+{
+  "totalCount": 5,
+  "contents": [
+    {
+      "repositoryId": "CONTAINER_REGISTRY_REPOSITORY_kr-west-wziylhuqta",
+      "repositoryName": "sfmi/ql/sfmi-ql-sample-app",
+      "registryId": "ryjqdraw",
+      "pullCount": 1,
+      "createdDt": "2025-03-10T01:09:05.000000Z",
+      "createdBy": "15555",
+      "modifiedDt": "2025-03-10T01:53:00.000000Z",
+      "modifiedBy": "15555",
+      "repositoryPrivateUri": "sfmiscr-ryjqdraw.scr.kr-west.scp-in.com/sfmi/ql/sfmi-ql-sample-app",
+      "repositoryPublicUri": "sfmiscr-ryjqdraw.scr.kr-west.samsungsdscloud.com/sfmi/ql/sfmi-ql-sample-app",
+      "repositoryStatus": "Active"
+    },
+    {
+      "repositoryId": "CONTAINER_REGISTRY_REPOSITORY_kr-west-kjlsxrnpwx",
+      "repositoryName": "jenkins-agent-dymc",
+      "registryId": "ryjqdraw",
+      "pullCount": 1,
+      "createdDt": "2025-03-07T08:15:53.000000Z",
+      "createdBy": "15555",
+      "modifiedDt": "2025-03-10T01:06:02.000000Z",
+      "modifiedBy": "15555",
+      "repositoryPrivateUri": "sfmiscr-ryjqdraw.scr.kr-west.scp-in.com/jenkins-agent-dymc",
+      "repositoryPublicUri": "sfmiscr-ryjqdraw.scr.kr-west.samsungsdscloud.com/jenkins-agent-dymc",
+      "repositoryStatus": "Active"
+    },
+    {
+      "repositoryId": "CONTAINER_REGISTRY_REPOSITORY_kr-west-lxrdigtckw",
+      "repositoryName": "jenkins",
+      "registryId": "ryjqdraw",
+      "pullCount": 1,
+      "createdDt": "2025-02-28T07:41:26.000000Z",
+      "createdBy": "15555",
+      "modifiedDt": "2025-03-07T01:16:23.000000Z",
+      "modifiedBy": "15555",
+      "repositoryPrivateUri": "sfmiscr-ryjqdraw.scr.kr-west.scp-in.com/jenkins",
+      "repositoryPublicUri": "sfmiscr-ryjqdraw.scr.kr-west.samsungsdscloud.com/jenkins",
+      "repositoryStatus": "Active"
+    },
+    {
+      "repositoryId": "CONTAINER_REGISTRY_REPOSITORY_kr-west-iobqghkche",
+      "repositoryName": "jenkins-agent",
+      "registryId": "ryjqdraw",
+      "pullCount": 1,
+      "createdDt": "2025-03-05T01:20:05.000000Z",
+      "createdBy": "15555",
+      "modifiedDt": "2025-03-05T04:30:44.000000Z",
+      "modifiedBy": "15555",
+      "repositoryPrivateUri": "sfmiscr-ryjqdraw.scr.kr-west.scp-in.com/jenkins-agent",
+      "repositoryPublicUri": "sfmiscr-ryjqdraw.scr.kr-west.samsungsdscloud.com/jenkins-agent",
+      "repositoryStatus": "Active"
+    },
+    {
+      "repositoryId": "CONTAINER_REGISTRY_REPOSITORY_kr-west-kitmsoyoju",
+      "repositoryName": "nginx",
+      "registryId": "ryjqdraw",
+      "pullCount": 0,
+      "createdDt": "2025-02-28T07:36:06.000000Z",
+      "createdBy": "15555",
+      "modifiedDt": "2025-02-28T07:37:10.000000Z",
+      "modifiedBy": "15555",
+      "repositoryPrivateUri": "sfmiscr-ryjqdraw.scr.kr-west.scp-in.com/nginx",
+      "repositoryPublicUri": "sfmiscr-ryjqdraw.scr.kr-west.samsungsdscloud.com/nginx",
+      "repositoryStatus": "Active"
+    }
+  ]
+}
+
+
+./scp-tool-cli container-registry list-tags-v1 --registry-id CONTAINER_REGISTRY_kr-west-ryjqdraw --repository-id CONTAINER_REGISTRY_REPOSITORY_kr-west-wziylhuqta --region KR-WEST
+
+root@k8s-multiaz-001:~/tools/scp-tool-cli-2.0.5/bin# ./scp-tool-cli container-registry list-tags-v1 --registry-id CONTAINER_REGISTRY_kr-west-ryjqdraw --repository-id CONTAINER_REGISTRY_REPOSITORY_kr-west-wziylhuqta --region KR-WEST |jq .
+{
+  "totalCount": 9,
+  "contents": [
+    {
+      "tagId": "51407",
+      "tagName": "20250310-167",
+      "tagPrivateUri": "sfmiscr-ryjqdraw.scr.kr-west.scp-in.com/sfmi/ql/sfmi-ql-sample-app:20250310-167",
+      "tagPublicUri": "sfmiscr-ryjqdraw.scr.kr-west.samsungsdscloud.com/sfmi/ql/sfmi-ql-sample-app:20250310-167",
+      "size": 111171139,
+      "hashDigest": "sha256:21993c4d51f26d8ef6a516b4cfeaa42fdc6a049e68715f35c9216141dd4613c6",
+      "manifestMediaType": "application/vnd.docker.distribution.manifest.v2+json",
+      "isScaned": "N",
+      "lastScanDt": "0001-01-01T00:00:00.000000Z",
+      "createdDt": "2025-03-10T01:09:05.000000Z",
+      "createdBy": "15555",
+      "modifiedDt": "2025-03-10T01:09:05.000000Z",
+      "modifiedBy": "15555",
+      "scanSummary": {
+        "totalVulnerability": 0,
+        "negligible": 0,
+        "low": 0,
+        "medium": 0,
+        "high": 0,
+        "critical": 0,
+        "unknown": 0
+      },
+      "scanStatus": "Not Scanned",
+      "isTagLock": "N",
+      "isNeedReScan": "N",
+      "refBy": "N",
+      "tagStatus": "Active"
+    },
+    {
+      "tagId": "51408",
+      "tagName": "20250310-170",
+      "tagPrivateUri": "sfmiscr-ryjqdraw.scr.kr-west.scp-in.com/sfmi/ql/sfmi-ql-sample-app:20250310-170",
+      "tagPublicUri": "sfmiscr-ryjqdraw.scr.kr-west.samsungsdscloud.com/sfmi/ql/sfmi-ql-sample-app:20250310-170",
+      "size": 111171139,
+      "hashDigest": "sha256:21993c4d51f26d8ef6a516b4cfeaa42fdc6a049e68715f35c9216141dd4613c6",
+      "manifestMediaType": "application/vnd.docker.distribution.manifest.v2+json",
+      "isScaned": "N",
+      "lastScanDt": "0001-01-01T00:00:00.000000Z",
+      "createdDt": "2025-03-10T01:16:12.000000Z",
+      "createdBy": "15555",
+      "modifiedDt": "2025-03-10T01:16:12.000000Z",
+      "modifiedBy": "15555",
+      "scanSummary": {
+        "totalVulnerability": 0,
+        "negligible": 0,
+        "low": 0,
+        "medium": 0,
+        "high": 0,
+        "critical": 0,
+        "unknown": 0
+      },
+      "scanStatus": "Not Scanned",
+      "isTagLock": "N",
+      "isNeedReScan": "N",
+      "refBy": "N",
+      "tagStatus": "Active"
+	  
+}
+
+
+
+이미지 삭제(tag 기반)
+./scp-tool-cli container-registry delete-tag-v1 --registry-id CONTAINER_REGISTRY_kr-west-ryjqdraw --repository-id CONTAINER_REGISTRY_REPOSITORY_kr-west-wziylhuqta --tag-id 51412 --region KR-WEST
+
+
