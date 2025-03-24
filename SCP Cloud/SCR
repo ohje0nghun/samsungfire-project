@@ -1,0 +1,20 @@
+
+
+#SCR 이미지 K8S 클러스터로 pull 하기위한 설정
+
+kubectl create secret docker-registry scr-regcred \
+    --docker-server=sfmiscr-ryjqdraw.scr.kr-west.scp-in.com \
+    --docker-username=$SCR_USERNAME \
+    --docker-password=$SCR_PASSWORD \
+    --docker-email=your-email@example.com -n your-namespace
+
+
+values.yaml 반영
+controller:
+  # Jenkins 이미지 설정 (외부 레지스트리 사용)
+  image:
+    registry: "sfmiscr-ryjqdraw.scr.kr-west.scp-in.com"
+    repository: "jenkins"
+    tag: "2.492-lts"
+  imagePullSecrets:
+    - name: scr-secret
