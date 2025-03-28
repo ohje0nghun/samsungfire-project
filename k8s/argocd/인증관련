@@ -1,0 +1,27 @@
+
+
+values.yaml 추가
+  
+repoServer:
+  volumes:
+    - name: bitbucket-tls
+      secret:
+        secretName: bitbucket-tls
+  volumeMounts:
+    - name: bitbucket-tls
+      mountPath: /etc/ssl/certs/bitbucket.crt
+      subPath: ca.crt
+  env:
+    - name: SSL_CERT_FILE
+      value: /etc/ssl/certs/bitbucket.crt
+
+
+        bitbucket 인증서적용
+helm upgrade argocd argo/argo-cd -n argocd \
+  --set repoServer.volumes[0].name=bitbucket-tls \
+  --set repoServer.volumes[0].secret.secretName=bitbucket-tls \
+  --set repoServer.volumeMounts[0].name=bitbucket-tls \
+  --set repoServer.volumeMounts[0].mountPath=/etc/ssl/certs/bitbucket.crt \
+  --set repoServer.volumeMounts[0].subPath=ca.crt \
+  --set repoServer.env[0].name=SSL_CERT_FILE \
+  --set repoServer.env[0].value=/etc/ssl/certs/bitbucket.crt
