@@ -1,0 +1,18 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: sfmi-ql-sample-app
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: 'https://bitbucket.smart-devops.io/scm/pj20241380/sfmi-ql-pac.git'
+    targetRevision: dev
+    path: ./helm
+  destination:
+    server: 'https://kubernetes.default.svc'
+    namespace: default
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
