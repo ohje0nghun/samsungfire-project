@@ -47,3 +47,66 @@ String getCodeInsightsResult(String projectKey, String repoSlug, String commitId
     }
     return null
 }
+
+
+---
+# Codemind, Fortify 2개에 대한 부분
+import com.atlassian.bitbucket.hook.repository.RepositoryHookResult
+import com.atlassian.bitbucket.pull.PullRequestService
+import com.atlassian.sal.api.component.ComponentLocator
+
+def pullRequestService = ComponentLocator.getComponent(PullRequestService)
+def pullRequest = pullRequestService.getById(
+    mergeRequest.pullRequest.toRef.repository.id,
+    mergeRequest.pullRequest.id
+)
+
+def fromBranch = pullRequest.fromRef.displayId
+def toBranch = pullRequest.toRef.displayId
+def commitId = pullRequest.fromRef.latestCommit
+def projectKey = pullRequest.toRef.repository.project.key
+def repoSlug = pullRequest.toRef.repository.slug
+
+// ✅ 검사할 Code Insights 리포트 키
+def reportKeys = ["codemind", "fortify"]
+def failedReports = []
+
+if (fromBranch.startsWith("feature/") && (toBranch == "develop" || toBranch == "predevelop")) {
+    reportKeys.each { reportKey ->
+        def status = getCodeInsightsStatus(projectKey, repoSlug, commitId, reportKey)
+        if (!"PASS".equalsIgnoreCase(status)) {
+            failedReports << "${reportKey} (${status ?: 'N/A'})"
+        }
+    }
+
+    if (!failedReports.isEmpty()) {
+        return RepositoryHookResult.rejected(
+            "Merge Check Failed",
+            "다음 리포트가 PASS 상태가 아닙니다: ${failedReports.join(', ')}"
+        )
+    }
+}
+
+return RepositoryHookResult.accepted()
+
+// === Code Insights 상태 조회 함수 ===
+String getCodeInsightsStatus(String projectKey, String repoSlug, String commitId, String reportKey) {
+    try {
+        def url = "https://bitbucket.smart-devops.io/rest/insights/1.0/projects/${projectKey}/repos/${repoSlug}/commits/${commitId}/reports"
+        def connection = new URL(url).openConnection()
+
+        connection.setRequestProperty("Authorization", "Basic " + "devadmin:tkatjdsfmi1!".bytes.encodeBase64().toString())
+        def response = connection.inputStream.text
+
+        def matcher = response =~ /"key"\s*:\s*"${reportKey}".*?"result"\s*:\s*"(\w+)"/
+        if (matcher.find()) {
+            return matcher.group(1)
+        }
+    } catch (Exception ignored) {
+        return null
+    }
+    return null
+}
+
+
+
