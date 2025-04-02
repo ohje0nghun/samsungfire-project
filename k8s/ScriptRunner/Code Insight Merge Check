@@ -1,0 +1,49 @@
+import com.atlassian.bitbucket.hook.repository.RepositoryHookResult
+import com.atlassian.bitbucket.pull.PullRequestService
+import com.atlassian.sal.api.component.ComponentLocator
+
+def pullRequestService = ComponentLocator.getComponent(PullRequestService)
+def pullRequest = pullRequestService.getById(
+    mergeRequest.pullRequest.toRef.repository.id,
+    mergeRequest.pullRequest.id
+)
+
+def fromBranch = pullRequest.fromRef.displayId
+def toBranch = pullRequest.toRef.displayId
+def commitId = pullRequest.fromRef.latestCommit
+def projectKey = pullRequest.toRef.repository.project.key
+def repoSlug = pullRequest.toRef.repository.slug
+def reportKey = "qa-report"
+
+if (fromBranch.startsWith("feature/") && (toBranch == "develop" || toBranch == "predevelop")) {
+    def status = getCodeInsightsResult(projectKey, repoSlug, commitId, reportKey)
+
+    if (!"PASS".equalsIgnoreCase(status)) {
+        return RepositoryHookResult.rejected(
+            "Merge Check Failed",
+            "Code Insights 리포트(${reportKey})가 PASS 상태가 아닙니다. 현재 상태: ${status ?: 'N/A'}"
+        )
+    }
+}
+
+return RepositoryHookResult.accepted()
+
+// === 정규식 기반 리포트 결과 추출 ===
+String getCodeInsightsResult(String projectKey, String repoSlug, String commitId, String reportKey) {
+    try {
+        def url = "https://bitbucket.smart-devops.io/rest/insights/1.0/projects/${projectKey}/repos/${repoSlug}/commits/${commitId}/reports"
+        def connection = new URL(url).openConnection()
+
+        // 🔐 임시 테스트용 Basic Auth (서비스 적용 시 외부 보관)
+        connection.setRequestProperty("Authorization", "Basic " + "devadmin:tkatjdsfmi1!".bytes.encodeBase64().toString())
+
+        def responseText = connection.inputStream.text
+        def matcher = responseText =~ /"key":"${reportKey}".*?"result":"(\w+)"/
+        if (matcher.find()) {
+            return matcher.group(1)
+        }
+    } catch (Exception ignored) {
+        return null
+    }
+    return null
+}
