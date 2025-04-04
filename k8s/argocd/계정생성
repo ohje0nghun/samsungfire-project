@@ -1,59 +1,46 @@
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: argocd-cm
-  namespace: argocd
 data:
-  accounts.admin: apiKey, login
-  accounts.devadm: login
-  accounts.opsadm: apiKey, login
-  accounts.sysadm: apiKey, login
+  policy.csv: |
+    # ReadOnly 권한
+    p, role:readonly, applications, get, */*, allow
+    p, role:readonly, projects, get, */*, allow
+    p, role:readonly, repositories, get, */*, allow
+    p, role:readonly, clusters, get, */*, allow
+    p, role:readonly, logs, get, */*, allow
+    p, role:readonly, exec, deny, */*, allow
 
+    # Admin 권한
+    p, role:admin, applications, *, */*, allow
+    p, role:admin, projects, *, */*, allow
+    p, role:admin, repositories, *, */*, allow
+    p, role:admin, clusters, *, */*, allow
+    p, role:admin, logs, *, */*, allow
+    p, role:admin, exec, create, */*, allow
+    p, role:admin, accounts, get, */*, allow
+
+    # ApplicationRole 권한 (기존 유지)
+    p, role:applicationRole, *, get, */*, allow
+    p, role:applicationRole, *, update, */*, allow
+    p, role:applicationRole, *, create, */*, allow
+    p, role:application, repositories, create, */*, allow
+    p, role:application, repositories, get, */*, allow
+
+    # 유저별 역할 매핑 (형이 원하는 devadm, opsadm, sysadm)
+    g, devadm, role:readonly
+    g, opsadm, role:admin
+    g, sysadm, role:applicationRole
+
+
+---
+data:
+  accounts.devadm: login
+  accounts.opsadm: login
+  accounts.sysadm: login
   accounts.devadm.enabled: "true"
   accounts.opsadm.enabled: "true"
   accounts.sysadm.enabled: "true"
-  admin.enabled: "true"
-
-  application.instanceLabelKey: argocd.argoproj.io/instance
-  application.sync.impersonation.enabled: "false"
-  exec.enabled: "false"
-
-  policy.csv: |
-    # devadm: ReadOnly 권한
-    p, devadm, applications, get, */*
-    p, devadm, projects, get, */*
-    p, devadm, repositories, get, */*
-    p, devadm, clusters, get, */*
-    p, devadm, logs, get, */*
-    p, devadm, exec, deny, */*
-
-    # opsadm: Admin 권한
-    p, opsadm, applications, *, */*
-    p, opsadm, projects, *, */*
-    p, opsadm, repositories, *, */*
-    p, opsadm, clusters, *, */*
-    p, opsadm, accounts, get, */*
-    p, opsadm, logs, *, */*
-    p, opsadm, exec, create, */*
-
-    # sysadm: Admin 권한
-    p, sysadm, applications, *, */*
-    p, sysadm, projects, *, */*
-    p, sysadm, repositories, *, */*
-    p, sysadm, clusters, *, */*
-    p, sysadm, accounts, get, */*
-    p, sysadm, logs, *, */*
-    p, sysadm, exec, create, */*
-
-  policy.default: role:readonly
-  server.rbac.log.enforce.enable: "false"
-  statusbadge.enabled: "false"
-  timeout.hard.reconciliation: 0s
-  timeout.reconciliation: 180s
-  url: https://argocd.example.com
 
 
 패스워드 세팅
-argocd account update-password
+argocd account update-password --account 
 
 
