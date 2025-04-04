@@ -1,0 +1,59 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-cm
+  namespace: argocd
+data:
+  accounts.admin: apiKey, login
+  accounts.devadm: login
+  accounts.opsadm: apiKey, login
+  accounts.sysadm: apiKey, login
+
+  accounts.devadm.enabled: "true"
+  accounts.opsadm.enabled: "true"
+  accounts.sysadm.enabled: "true"
+  admin.enabled: "true"
+
+  application.instanceLabelKey: argocd.argoproj.io/instance
+  application.sync.impersonation.enabled: "false"
+  exec.enabled: "false"
+
+  policy.csv: |
+    # devadm: ReadOnly 권한
+    p, devadm, applications, get, */*
+    p, devadm, projects, get, */*
+    p, devadm, repositories, get, */*
+    p, devadm, clusters, get, */*
+    p, devadm, logs, get, */*
+    p, devadm, exec, deny, */*
+
+    # opsadm: Admin 권한
+    p, opsadm, applications, *, */*
+    p, opsadm, projects, *, */*
+    p, opsadm, repositories, *, */*
+    p, opsadm, clusters, *, */*
+    p, opsadm, accounts, get, */*
+    p, opsadm, logs, *, */*
+    p, opsadm, exec, create, */*
+
+    # sysadm: Admin 권한
+    p, sysadm, applications, *, */*
+    p, sysadm, projects, *, */*
+    p, sysadm, repositories, *, */*
+    p, sysadm, clusters, *, */*
+    p, sysadm, accounts, get, */*
+    p, sysadm, logs, *, */*
+    p, sysadm, exec, create, */*
+
+  policy.default: role:readonly
+  server.rbac.log.enforce.enable: "false"
+  statusbadge.enabled: "false"
+  timeout.hard.reconciliation: 0s
+  timeout.reconciliation: 180s
+  url: https://argocd.example.com
+
+
+패스워드 세팅
+argocd account update-password
+
+
