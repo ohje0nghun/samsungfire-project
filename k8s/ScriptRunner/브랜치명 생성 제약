@@ -1,0 +1,71 @@
+*pre-hook
+push, branch-create
+
+
+import com.atlassian.bitbucket.repository.Repository
+import com.atlassian.bitbucket.hook.repository.RepositoryHookRequest
+import com.atlassian.bitbucket.hook.repository.RepositoryHookResult
+import com.atlassian.sal.api.component.ComponentLocator
+import com.atlassian.bitbucket.repository.RefService
+
+try {
+    def refService = ComponentLocator.getComponent(RefService)
+    def request = hookRequest as RepositoryHookRequest
+    def newRefs = request.refChanges
+    def repo = request.repository
+
+    def slug = repo.slug
+    def allowedBranches = []
+    def allowedPatterns = []
+
+    // 📌 레포 이름이 '-pac' 또는 '-config'로 끝나는 경우
+    if (slug.endsWith("-pac") || slug.endsWith("-config")) {
+        allowedBranches = [
+            "refs/heads/dev",
+            "refs/heads/sit",
+            "refs/heads/uat",
+            "refs/heads/prd"
+        ]
+        // 패턴 허용 없음 (명확한 브랜치만 허용)
+    } else {
+        allowedBranches = [
+            "refs/heads/develop",
+            "refs/heads/predevelop",
+            "refs/heads/main"
+        ]
+        allowedPatterns = [
+            "refs/heads/feature/.*",
+            "refs/heads/release/.*"
+        ]
+    }
+
+    for (refChange in newRefs) {
+        def branchName = refChange.refId
+
+        // 태그는 허용
+        if (branchName.startsWith("refs/tags/")) {
+            continue
+        }
+
+        // 정확히 허용된 브랜치명인지 확인
+        if (allowedBranches.contains(branchName)) {
+            continue
+        }
+
+        // 패턴 기반 브랜치 허용 여부 확인
+        def isValid = allowedPatterns.any { pattern -> branchName.matches(pattern.toString()) }
+
+
+        if (!isValid) {
+            return RepositoryHookResult.rejected(
+                "브랜치 생성 제한",
+                "이 리포지토리에서 허용되지 않은 브랜치명입니다. 명명 규칙을 확인하세요."
+            )
+        }
+    }
+
+    return RepositoryHookResult.accepted()
+
+} catch (Exception e) {
+    return RepositoryHookResult.accepted()
+}
