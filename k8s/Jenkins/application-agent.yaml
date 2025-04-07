@@ -1,0 +1,32 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: jenkins-agents
+  namespace: argocd
+spec:
+  generators:
+    - list:
+        elements:
+          - name: build
+          - name: qa
+          - name: release
+          - name: router
+  template:
+    metadata:
+      name: jenkins-agent-{{name}}
+    spec:
+      project: default
+      source:
+        repoURL: 'https://your.repo.git'
+        targetRevision: main
+        path: jenkins-agent/{{name}}
+        helm:
+          valueFiles:
+            - values.yaml
+      destination:
+        server: 'https://kubernetes.default.svc'
+        namespace: cicd
+      syncPolicy:
+        automated:
+          selfHeal: true
+          prune: true
