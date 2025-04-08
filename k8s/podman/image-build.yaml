@@ -1,0 +1,41 @@
+# 파일명: podman-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: podman-builder
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: podman-builder
+  template:
+    metadata:
+      labels:
+        app: podman-builder
+    spec:
+      containers:
+        - name: podman
+          image: your-registry.local/podman-in-container:latest
+          imagePullPolicy: IfNotPresent
+          command: [ "sleep", "infinity" ]
+          securityContext:
+            privileged: true  # podman이 root 모드로 돌아가려면 꼭 필요함
+          volumeMounts:
+            - name: containers-storage
+              mountPath: /var/lib/containers
+      volumes:
+        - name: containers-storage
+          emptyDir: {}
+---
+# 파일명: podman-service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: podman-builder
+spec:
+  selector:
+    app: podman-builder
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 8080
