@@ -1,0 +1,47 @@
+  JCasC:
+    overwriteConfiguration: true
+    configScripts:
+      security: |
+        jenkins:
+          authorizationStrategy:
+            roleBased:
+              roles:
+                global:
+                  - name: "admin"
+                    pattern: ".*"
+                    permissions:
+                      - "Overall/Administer"
+                    entries:
+                      - user: "devadmin"
+                      - user: "sysadm"
+                  - name: "user"
+                    pattern: ".*"
+                    permissions:
+                      - "Overall/Read"
+                      - "Job/Read"
+                      - "View/Read"
+                    entries:
+                      - user: "devadm"
+          securityRealm:
+            local:
+              allowsSignup: false
+              enableCaptcha: false
+              users:
+                - id: "devadmin"
+                  name: "Jenkins Admin"
+                  password: "changeme"
+                  properties:
+                    - mailer:
+                        emailAddress: "jeong32park@samsungfire.com"
+                - id: "sysadm"
+                  name: "sysadm"
+                  password: "changeme"
+                  properties:
+                    - mailer:
+                        emailAddress: "sys@sysm.com"
+                - id: "devuser"
+                  name: "devuser"
+                  password: "changeme"
+                  properties:
+                    - mailer:
+                        emailAddress: "devuser@smsm.com"
