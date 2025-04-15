@@ -1,0 +1,38 @@
+FROM jenkins/jenkins:lts
+
+USER root
+
+# 사설 인증서 복사
+COPY ca.crt /usr/local/share/ca-certificates/bitbucket-ca.crt
+
+# 시스템 truststore 반영 (Ubuntu 계열 기준)
+RUN update-ca-certificates
+
+# JVM truststore에도 추가 (Jenkins는 JVM 기반)
+RUN keytool -import -trustcacerts -alias bitbucket-ca \
+    -file /usr/local/share/ca-certificates/bitbucket-ca.crt \
+    -keystore /etc/ssl/certs/java/cacerts \
+    -storepass changeit -noprompt
+
+USER jenkins
+
+
+---
+
+FROM jenkins/inbound-agent:latest-jdk17  # or your own base
+
+USER root
+
+# 사설 인증서 복사
+COPY ca.crt /usr/local/share/ca-certificates/bitbucket-ca.crt
+
+# 시스템 CA 등록
+RUN update-ca-certificates
+
+# JVM truststore에도 등록 (Jenkins agent는 JVM 기반이므로)
+RUN keytool -import -trustcacerts -alias bitbucket-ca \
+    -file /usr/local/share/ca-certificates/bitbucket-ca.crt \
+    -keystore /etc/ssl/certs/java/cacerts \
+    -storepass changeit -noprompt
+
+USER jenkins
