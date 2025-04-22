@@ -1,0 +1,48 @@
+redis-ha:
+  enabled: true
+
+  # Redis Pod 수 (HA 구성을 위해 반드시 3 이상)
+  replicas: 3
+
+  # Redis 서버 이미지 (기존에 사용 중인 버전으로 고정)
+  image:
+    repository: public.ecr.aws/docker/library/redis
+    tag: 7.4.2-alpine
+
+  # 데이터 영속성 비활성화 (필요 시 PVC 설정 가능)
+  persistentVolume:
+    enabled: false
+
+  # Redis 내부 config 설정
+  redis:
+    masterGroupName: argocd
+    config:
+      save: '""'  # RDB 저장 비활성화
+
+  # HAProxy: 클라이언트가 항상 master로 접근 가능하도록 중계
+  haproxy:
+    enabled: true
+    image: haproxy
+    tag: 2.9.4-alpine
+    metrics:
+      enabled: false  # Prometheus scrape 사용 시 true로
+
+  # Exporter: Prometheus metric 수집 비활성화
+  exporter:
+    enabled: false
+
+  # 노드 제한: 라벨이 붙은 노드에만 배포
+  nodeSelector:
+    redis-ha: "true"
+
+  # 각 Redis Pod가 서로 다른 노드에 뜨도록 설정
+  affinity:
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        - labelSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values:
+                  - redis
+          topologyKey: "kubernetes.io/hostname"
