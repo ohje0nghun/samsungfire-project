@@ -1,0 +1,153 @@
+configmap.yaml
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-notifications-cm
+  namespace: argocd
+data:
+  context: |
+    argocdUrl: https://argocd.smart-devops.io
+
+  service.webhook.jenkins: |
+    url: https://jenkins.smart-devops.io/generic-webhook-trigger/invoke?token=argosync-token
+    headers:
+      - name: Content-Type
+        value: application/json
+
+  template.jenkins-trigger: |
+    webhook:
+      jenkins:
+        method: POST
+        body: |
+          {
+            "app": "{{.app.metadata.name}}",
+            "syncStatus": "{{.app.status.sync.status}}",
+            "healthStatus": "{{.app.status.health.status}}",
+            "syncRev": "{{.app.status.sync.revision}}",
+            "revision": "{{ if .app.status.operationState.syncResult }}{{ .app.status.operationState.syncResult.revision }}{{ end }}",
+            "targetRevision": "{{.app.spec.source.targetRevision}}",
+            "namespace": "{{.app.spec.destination.namespace}}",
+            "repoURL": "{{.app.spec.source.repoURL}}",
+            "finishedAt": "{{.app.status.operationState.finishedAt}}"
+          }
+
+  trigger.jenkins-sync-success: |
+    - name: jenkins-sync-success
+      when: app.status.operationState != nil &&
+            app.status.operationState.phase == "Succeeded" &&
+            app.status.operationState.syncResult != nil &&
+            app.status.health != nil &&
+            app.status.health.status == "Healthy"
+      send:
+        - jenkins-trigger
+
+  subscriptions: |
+    - recipients:
+        - jenkins
+      triggers:
+        - jenkins-sync-success
+
+  trigger.on-manual-test: |
+    - name: on-manual-test
+      send:
+        - jenkins-trigger
+
+
+
+
+----
+secret.yaml
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: argocd-notifications-secret
+  namespace: argocd
+type: Opaque
+stringData:
+  bitbucket-basic-auth: devadmin:tkatjdsfmi1!
+  webhook.jenkinsjob: enabled
+---
+
+template 추가내용
+
+values.yaml
+
+applicationLabels:
+  notifications.argoproj.io/subscribe.webhook.bitbucket-build-status: "true"
+  notifications.argoproj.io/subscribe.jenkins-sync-success.webhook: "
+
+
+
+template/rollouts, deployment.yaml
+
+예시
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sfmi-ql-sample-app
+  labels:
+    app: sfmi-ql-sample-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sfmi-ql-sample-app
+  template:
+    metadata:
+      labels:
+        app: sfmi-ql-sample-app
+{{- with .Values.applicationLabels }}
+{{ toYaml . | indent 8 }}
+{{- end }}
+    spec:
+      containers:
+        - name: sfmi-ql-sample-app
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          ports:
+            - containerPort: 8080
+  
+
+
+---
+jenkins groovy 파일
+
+pipeline {
+  agent any
+  parameters {
+    string(name: 'app', defaultValue: '', description: '')
+    string(name: 'syncStatus', defaultValue: '', description: '')
+    string(name: 'healthStatus', defaultValue: '', description: '')
+    string(name: 'syncRev', defaultValue: '', description: '')
+    string(name: 'revision', defaultValue: '', description: '')
+    string(name: 'targetRevision', defaultValue: '', description: '')
+    string(name: 'namespace', defaultValue: '', description: '')
+    string(name: 'repoURL', defaultValue: '', description: '')
+    string(name: 'finishedAt', defaultValue: '', description: '')
+    string(name: 'image', defaultValue: '', description: '')
+  }
+  stages {
+    stage('Print ArgoCD App Sync Info') {
+      steps {
+        echo "🔔 ArgoCD Application Synced!"
+        echo "App: ${params.app}"
+        echo "Sync Status: ${params.syncStatus}"
+        echo "Health Status: ${params.healthStatus}"
+        echo "Git Revision: ${params.revision}"
+        echo "Target Branch: ${params.targetRevision}"
+        echo "Namespace: ${params.namespace}"
+        echo "Repo URL: ${params.repoURL}"
+        echo "Finished At: ${params.finishedAt}"
+        echo "image tag: ${params.image}"
+      }
+    }
+  }
+}
+
+
+
+
+
+
