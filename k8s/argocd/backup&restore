@@ -1,0 +1,82 @@
+# backup
+
+#!/bin/bash
+
+# 📅 날짜 형식 (예: 20250602)
+DATE=$(date +"%Y%m%d")
+
+# 📁 백업 디렉토리
+BACKUP_DIR="/NAS/argocd"
+BACKUP_FILE="${BACKUP_DIR}/argocd_backup_${DATE}.tar.gz"
+TMP_DIR="/tmp/argocd_backup_${DATE}"
+
+# ⛏️ 준비
+mkdir -p "$TMP_DIR"
+
+# 🔄 리소스 백업
+kubectl get all -n argocd -o yaml > "${TMP_DIR}/all.yaml"
+kubectl get applications.argoproj.io -A -o yaml > "${TMP_DIR}/applications.yaml"
+kubectl get appprojects.argoproj.io -A -o yaml > "${TMP_DIR}/appprojects.yaml"
+kubectl get secrets -n argocd -o yaml > "${TMP_DIR}/secrets.yaml"
+kubectl get configmaps -n argocd -o yaml > "${TMP_DIR}/configmaps.yaml"
+
+# 📦 압축
+tar -czf "$BACKUP_FILE" -C "$TMP_DIR" .
+
+# 🧹 임시파일 제거
+rm -rf "$TMP_DIR"
+
+# 🗑️ 30일 지난 백업 삭제
+find "$BACKUP_DIR" -name "argocd_backup_*.tar.gz" -type f -mtime +30 -exec rm -f {} \;
+
+echo "✅ ArgoCD backup complete: $BACKUP_FILE"
+
+
+
+---
+
+# restore
+
+#!/bin/bash
+
+# 📅 날짜 입력받기
+read -p "📅 복구할 날짜를 입력하세요 (예: 20250604): " DATE
+
+if [[ ! "$DATE" =~ ^[0-9]{8}$ ]]; then
+  echo "❗ 날짜 형식이 올바르지 않습니다. 예: 20250604"
+  exit 1
+fi
+
+# 📁 백업 파일 경로
+BACKUP_DIR="/NAS/argocd"
+BACKUP_FILE="${BACKUP_DIR}/argocd_backup_${DATE}.tar.gz"
+TMP_DIR="/tmp/argocd_restore_${DATE}"
+
+# ✅ 백업 파일 존재 확인
+if [ ! -f "$BACKUP_FILE" ]; then
+  echo "❗ 백업 파일이 존재하지 않습니다: $BACKUP_FILE"
+  exit 2
+fi
+
+# 🔄 압축 해제
+mkdir -p "$TMP_DIR"
+tar -xzf "$BACKUP_FILE" -C "$TMP_DIR"
+
+# 🛠️ 리소스 복원
+kubectl apply -f "${TMP_DIR}/configmaps.yaml"
+kubectl apply -f "${TMP_DIR}/secrets.yaml"
+kubectl apply -f "${TMP_DIR}/appprojects.yaml"
+kubectl apply -f "${TMP_DIR}/applications.yaml"
+kubectl apply -f "${TMP_DIR}/all.yaml" 2>/dev/null || echo "ℹ️ all.yaml 생략됨 (선택 항목)"
+
+# 🧹 임시 파일 삭제
+rm -rf "$TMP_DIR"
+
+echo "✅ ArgoCD 복구 완료: ${DATE}"
+
+
+
+
+
+
+
