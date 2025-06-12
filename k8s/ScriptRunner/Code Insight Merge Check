@@ -185,75 +185,91 @@ String getCodeInsightsStatus(String projectKey, String repoSlug, String commitId
 --- 
 // DEV 만 REPORT 존재해야  MERGE
 
+// PR 병합을 제어하기 위한 Hook 결과 타입
 import com.atlassian.bitbucket.hook.repository.RepositoryHookResult
+
+// Pull Request 정보를 조회하는 Bitbucket 서비스
 import com.atlassian.bitbucket.pull.PullRequestService
+
+// ScriptRunner에서 Bitbucket의 컴포넌트를 참조할 수 있게 해주는 유틸
 import com.atlassian.sal.api.component.ComponentLocator
 
-// 🔹 PR 정보 조회
+// 🔹 PullRequestService 인스턴스 얻기
 PullRequestService pullRequestService = ComponentLocator.getComponent(PullRequestService)
+
+// 🔹 현재 병합 시도 중인 PR 객체를 PR ID를 통해 가져옴
 def pullRequest = pullRequestService.getById(
-    mergeRequest.pullRequest.toRef.repository.id,
-    mergeRequest.pullRequest.id
+    mergeRequest.pullRequest.toRef.repository.id, // PR 대상 레포지토리 ID
+    mergeRequest.pullRequest.id                   // PR ID
 )
 
-String toBranch = pullRequest.toRef.displayId
-String commitId = pullRequest.fromRef.latestCommit
-String projectKey = pullRequest.toRef.repository.project.key
-String repoSlug = pullRequest.toRef.repository.slug
+// 🔹 PR 관련 정보 추출
+String toBranch = pullRequest.toRef.displayId                   // 목적 브랜치명 (예: "dev")
+String commitId = pullRequest.fromRef.latestCommit              // PR의 source 브랜치 최신 커밋 SHA
+String projectKey = pullRequest.toRef.repository.project.key    // 프로젝트 키 (예: "PJ1234")
+String repoSlug = pullRequest.toRef.repository.slug             // 레포 슬러그 (예: "my-repo")
 
-// ✅ dev 브랜치 대상 PR만 검사
+// ✅ 검사 조건: 목적 브랜치가 "dev"일 때만 검사 수행
 if (!toBranch.equalsIgnoreCase("dev")) {
-    return RepositoryHookResult.accepted()
+    return RepositoryHookResult.accepted() // dev가 아니면 검사하지 않고 통과
 }
 
-// ✅ 반드시 존재해야 할 Code Insights 리포트 키 목록
-List<String> requiredReports = ["codemind", "fortify"]
-List<String> foundReports = []
+// ✅ 검사해야 할 필수 Code Insights Report 키 목록
+List<String> requiredReports = ["codemind", "fortify"] // 필수 리포트 키
+List<String> foundReports = []                         // 실제 발견된 리포트 키 저장용
 
-// 📌 현재 커밋에 등록된 전체 리포트 키 목록 조회
+// 🔍 현재 커밋에 등록된 모든 Code Insights 리포트 키 조회
 List<String> allReports = getAllReportKeys(projectKey, repoSlug, commitId)
 
+// 필수 리포트 목록을 순회하며 실제 존재하는지 확인
 requiredReports.each { String key ->
     if (allReports.contains(key)) {
-        foundReports << key
+        foundReports << key // 존재하는 키는 기록
     }
 }
 
-// ❌ 일부 리포트가 누락된 경우 병합 차단
+// ❌ 하나라도 누락된 리포트가 있을 경우 병합 차단
 if (foundReports.size() < requiredReports.size()) {
     List<String> missing = requiredReports - foundReports
     return RepositoryHookResult.rejected(
-        "Code Insights Report 누락",
-        "다음 리포트가 존재하지 않습니다: ${missing.join(', ')}"
+        "Code Insights Report 누락", // Bitbucket UI에 표시될 메시지 제목
+        "다음 리포트가 존재하지 않습니다: ${missing.join(', ')}" // 상세 메시지
     )
 }
 
-// ✅ 리포트가 모두 존재하면 병합 허용
+// ✅ 필수 리포트가 모두 존재하면 병합 허용
 return RepositoryHookResult.accepted()
 
-// ==============================
-// 🔍 Code Insights Report 목록 조회
-// ==============================
+// =============================================
+// 🔍 현재 커밋에 존재하는 Code Insights 리포트 키 목록 조회 함수
+// =============================================
 List<String> getAllReportKeys(String projectKey, String repoSlug, String commitId) {
     try {
+        // Bitbucket의 Code Insights REST API 호출 URL 구성
         String url = "http://bitbucket.techartist.xyz/rest/insights/1.0/projects/${projectKey}/repos/${repoSlug}/commits/${commitId}/reports"
         def connection = new URL(url).openConnection()
 
-        // 인증 정보는 ScriptRunner 환경 변수로 추출 권장
+        // 인증 헤더 설정 (기본 인증 방식, Base64 인코딩된 사용자정보)
         connection.setRequestProperty("Authorization", "Basic " + "devadmin:tkatjdsfmi1!".bytes.encodeBase64().toString())
+
+        // 응답 데이터를 문자열로 읽음
         String response = connection.inputStream.text
 
-        // 정규식으로 "key": "xxx" 값만 추출
+        // 정규식으로 응답 내 `"key": "리포트명"` 형태만 추출
         def matcher = response =~ /"key"\s*:\s*"([^"]+)"/
         List<String> reportKeys = []
+
+        // 반복하며 key 값 수집
         while (matcher.find()) {
             reportKeys << matcher.group(1)
         }
-        return reportKeys
+
+        return reportKeys // 리포트 키 리스트 반환
     } catch (Exception e) {
-        return []
+        return [] // 실패 시 빈 리스트 반환 (머지 차단 쪽에서 판단)
     }
 }
+
 
 
 
