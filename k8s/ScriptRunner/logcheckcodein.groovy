@@ -78,3 +78,61 @@ List<String> getAllReportKeys(String projectKey, String repoSlug, String commitI
         return []
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+List<String> getAllReportKeys(String projectKey, String repoSlug, String commitId) {
+    try {
+        // 👉 SSL 인증서 검증 비활성화 설정
+        def trustAllCerts = [new javax.net.ssl.X509TrustManager() {
+            java.security.cert.X509Certificate[] getAcceptedIssuers() { null }
+            void checkClientTrusted(java.security.cert.X509Certificate[] certs, String authType) {}
+            void checkServerTrusted(java.security.cert.X509Certificate[] certs, String authType) {}
+        }] as javax.net.ssl.TrustManager[]
+
+        def sc = javax.net.ssl.SSLContext.getInstance("TLS")
+        sc.init(null, trustAllCerts, new java.security.SecureRandom())
+        javax.net.ssl.HttpsURLConnection.setDefaultSSLSocketFactory(sc.socketFactory)
+        javax.net.ssl.HttpsURLConnection.setDefaultHostnameVerifier({ hostname, session -> true } as javax.net.ssl.HostnameVerifier)
+
+        // 👉 URL 요청
+        String url = "https://bitbucket.techartist.xyz/rest/insights/1.0/projects/${projectKey}/repos/${repoSlug}/commits/${commitId}/reports"
+        def connection = new URL(url).openConnection()
+        connection.setRequestProperty("Authorization", "Bearer BBDC-OTU3NzU5NjMxMjY5OsZCwEdaVXmKivK1fra0JbDdT+1m")
+        String response = connection.inputStream.text
+
+        def matcher = response =~ /"key"\s*:\s*"([^"]+)"/
+        List<String> reportKeys = []
+        while (matcher.find()) {
+            reportKeys << matcher.group(1)
+        }
+
+        return reportKeys
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
