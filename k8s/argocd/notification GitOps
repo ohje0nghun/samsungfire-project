@@ -1,0 +1,115 @@
+pipeline {
+  agent any
+  parameters {
+    string(name: 'app', defaultValue: '', description: '')
+    string(name: 'revision', defaultValue: '', description: '이전 revision')
+    string(name: 'targetRevision', defaultValue: '', description: '현재 revision')
+    string(name: 'repoURL', defaultValue: '', description: 'Git URL')
+  }
+  stages {
+    stage('Git Clone') {
+      steps {
+        script {
+          def username = "devadmin"
+          def password = "tkatjdsfmi1!"
+          def plainRepo = params.repoURL.replace("https://", "")
+          def authenticatedUrl = "https://${username}:${password}@${plainRepo}"
+
+          sh "rm -rf repo"
+          sh "git clone ${authenticatedUrl} repo"
+        }
+      }
+    }
+
+    stage('Git Diff') {
+      steps {
+        dir("repo") {
+          script {
+            // checkout 이전 revision
+            sh "git checkout ${params.revision}"
+
+            // checkout 현재 revision
+            sh "git checkout ${params.targetRevision}"
+
+            // 변경된 파일 추출
+            def changedFiles = sh(
+              script: "git diff ${params.revision} ${params.targetRevision} --name-only",
+              returnStdout: true
+            ).trim().split("\n")
+
+            echo "변경된 파일 목록:"
+            changedFiles.each { file ->
+              echo " - ${file}"
+
+              if (file.endsWith(".yaml") && file.contains("deployment")) {
+                def deploymentYaml = readYaml file: file
+                deploymentYaml?.spec?.template?.spec?.containers?.each { container ->
+                  echo "변경된 이미지: ${container.image}"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+
+
+----
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-notifications-cm
+  namespace: argocd
+data:
+  context: |
+    argocdUrl: https://argocd.smart-devops.io
+
+  service.webhook.jenkins: |
+    url: https://jenkins.smart-devops.io/generic-webhook-trigger/invoke?token=argosync-token
+    headers:
+      - name: Content-Type
+        value: application/json
+
+  template.jenkins-trigger: |
+    webhook:
+      jenkins:
+        method: POST
+        body: |
+          {
+            "app": "{{.app.metadata.name}}",
+            "revision": "{{ if .app.status.operationState.syncResult }}{{ .app.status.operationState.syncResult.revision }}{{ end }}",
+            "targetRevision": "{{.app.spec.source.targetRevision}}",
+            "repoURL": "{{.app.spec.source.repoURL}}"
+          }
+
+  trigger.jenkins-sync-success: |
+    - name: jenkins-sync-success
+      when: app.status.operationState != nil &&
+            app.status.operationState.phase == "Succeeded"
+      send:
+        - jenkins-trigger
+
+  subscriptions: |
+    - recipients:
+        - jenkins
+      triggers:
+        - jenkins-sync-success
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
