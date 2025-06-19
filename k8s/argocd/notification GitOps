@@ -112,7 +112,7 @@ pipeline {
   }
   environment {
     ARGOCD_SERVER = 'argocd.smart-devops.io'
-    ARGOCD_TOKEN = credentials('argocd-api-token')  // Jenkins Credentials에 등록 필요
+    ARGOCD_TOKEN = credentials('argocd-api-token')
   }
   stages {
     stage('Git Clone') {
@@ -143,18 +143,20 @@ pipeline {
           ).trim()
 
           def appInfo = readJSON text: result
-          def history = appInfo?.status?.history
+          def historyList = appInfo?.status?.history
 
-          if (history == null || history.size() < 2) {
-            error("Cannot determine previous revision")
+          if (historyList == null || historyList.size() < 2) {
+            echo "History insufficient: 최초 배포이거나 기록 부족 → 빌드 스킵"
+            currentBuild.result = 'NOT_BUILT'
+            return
           }
 
-          def previousRevision = history[-2].revision
+          def previousIndex = historyList.size() - 2
+          def previousRevision = historyList[previousIndex].revision
           echo "이전 revision: ${previousRevision}"
 
-          // 변경된 파일 추출
           dir("repo") {
-            sh "git checkout ${params.revision}"  // 최신으로 이동
+            sh "git checkout ${params.revision}"
             def changedFiles = sh(
               script: "git diff ${previousRevision} ${params.revision} --name-only",
               returnStdout: true
@@ -169,6 +171,7 @@ pipeline {
             echo "변경된 파일:"
             changedFiles.each { file ->
               echo " - ${file}"
+
               if (file.endsWith(".yaml") && file.contains("deployment")) {
                 def deploymentYaml = readYaml file: file
                 deploymentYaml?.spec?.template?.spec?.containers?.each { container ->
@@ -182,6 +185,7 @@ pipeline {
     }
   }
 }
+
 
 
 
