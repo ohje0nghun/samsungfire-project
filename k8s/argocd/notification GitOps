@@ -101,6 +101,89 @@ data:
 
 
 
+----
+
+pipeline {
+  agent any
+  parameters {
+    string(name: 'app', defaultValue: '', description: 'ArgoCD App Name')
+    string(name: 'revision', defaultValue: '', description: '현재 revision')
+    string(name: 'repoURL', defaultValue: '', description: 'Git Repo URL')
+  }
+  environment {
+    ARGOCD_SERVER = 'argocd.smart-devops.io'
+    ARGOCD_TOKEN = credentials('argocd-api-token')  // Jenkins Credentials에 등록 필요
+  }
+  stages {
+    stage('Git Clone') {
+      steps {
+        script {
+          def username = "devadmin"
+          def password = "tkatjdsfmi1!"
+          def plainRepo = params.repoURL.replace("https://", "")
+          def authenticatedUrl = "https://${username}:${password}@${plainRepo}"
+
+          sh "rm -rf repo"
+          sh "git clone ${authenticatedUrl} repo"
+        }
+      }
+    }
+
+    stage('Get Previous Revision from ArgoCD') {
+      steps {
+        script {
+          def appName = params.app
+
+          def result = sh(
+            script: """
+              curl -s -k -H "Authorization: Bearer ${ARGOCD_TOKEN}" \\
+              https://${ARGOCD_SERVER}/api/v1/applications/${appName}
+            """,
+            returnStdout: true
+          ).trim()
+
+          def appInfo = readJSON text: result
+          def history = appInfo?.status?.history
+
+          if (history == null || history.size() < 2) {
+            error("Cannot determine previous revision")
+          }
+
+          def previousRevision = history[-2].revision
+          echo "이전 revision: ${previousRevision}"
+
+          // 변경된 파일 추출
+          dir("repo") {
+            sh "git checkout ${params.revision}"  // 최신으로 이동
+            def changedFiles = sh(
+              script: "git diff ${previousRevision} ${params.revision} --name-only",
+              returnStdout: true
+            ).trim().split("\n")
+
+            if (changedFiles.size() == 0 || changedFiles[0] == '') {
+              echo "변경된 파일 없음 → 빌드 스킵"
+              currentBuild.result = 'NOT_BUILT'
+              return
+            }
+
+            echo "변경된 파일:"
+            changedFiles.each { file ->
+              echo " - ${file}"
+              if (file.endsWith(".yaml") && file.contains("deployment")) {
+                def deploymentYaml = readYaml file: file
+                deploymentYaml?.spec?.template?.spec?.containers?.each { container ->
+                  echo "📦 변경된 이미지: ${container.image}"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+
 
 
 
