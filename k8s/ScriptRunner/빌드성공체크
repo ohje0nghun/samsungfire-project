@@ -1,0 +1,18 @@
+import com.atlassian.bitbucket.hook.repository.*
+import com.atlassian.bitbucket.build.*
+import com.atlassian.sal.api.component.ComponentLocator
+
+def buildStatusService = ComponentLocator.getComponent(BuildStatusService)
+def commitId = mergeRequest.pullRequest.fromRef.latestCommit
+
+def statuses = buildStatusService.getStatuses(commitId)
+
+if (statuses.any { it.state == BuildState.FAILED }) {
+    return RepositoryHookResult.rejected("❌ 빌드 실패", "하나 이상의 빌드가 실패했습니다. 모든 빌드가 성공해야 병합할 수 있습니다.")
+}
+
+if (statuses.size() < 3) {
+    return RepositoryHookResult.rejected("❗ 빌드 부족", "총 3개의 빌드가 모두 실행되어야 합니다.")
+}
+
+return RepositoryHookResult.accepted()
