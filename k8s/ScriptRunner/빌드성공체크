@@ -1,18 +1,42 @@
-import com.atlassian.bitbucket.hook.repository.*
-import com.atlassian.bitbucket.build.*
-import com.atlassian.sal.api.component.ComponentLocator
+import groovy.json.JsonSlurper
+import com.atlassian.bitbucket.hook.repository.RepositoryHookResult
 
-def buildStatusService = ComponentLocator.getComponent(BuildStatusService)
+// PR 정보
 def commitId = mergeRequest.pullRequest.fromRef.latestCommit
 
-def statuses = buildStatusService.getStatuses(commitId)
+// 필수 빌드 Key 3개
+def requiredBuildKeys = ["qa", "codemind", "changeminer"]
 
-if (statuses.any { it.state == BuildState.FAILED }) {
-    return RepositoryHookResult.rejected("❌ 빌드 실패", "하나 이상의 빌드가 실패했습니다. 모든 빌드가 성공해야 병합할 수 있습니다.")
+// REST API 호출
+def url = "https://bitbucket.techartist.xyz/rest/build-status/1.0/commits/${commitId}"
+def conn = new URL(url).openConnection()
+conn.setRequestProperty("Authorization", "Basic " + "devadmin:tkatjdsfmi1!".bytes.encodeBase64().toString())
+
+def text = conn.inputStream.text
+def parsed = new JsonSlurper().parseText(text)
+
+// 상태 맵 생성
+def statusMap = [:]
+
+// 응답이 Map이고, values 필드가 리스트면 처리
+if (parsed instanceof Map && parsed.containsKey("values") && parsed["values"] instanceof List) {
+    (parsed["values"] as List).each { rawEntry ->
+        def entry = rawEntry as Map
+        if (entry["key"] in requiredBuildKeys) {
+            statusMap[entry["key"]] = entry["state"]
+        }
+    }
 }
 
-if (statuses.size() < 3) {
-    return RepositoryHookResult.rejected("❗ 빌드 부족", "총 3개의 빌드가 모두 실행되어야 합니다.")
+// 누락, 실패 검사
+def missing = requiredBuildKeys - statusMap.keySet()
+def failed = statusMap.findAll { k, v -> v != "SUCCESSFUL" }.keySet()
+
+if (missing) {
+    return RepositoryHookResult.rejected("❌ 빌드 누락", "필수 빌드가 누락됨: ${missing.join(', ')}")
+}
+if (failed) {
+    return RepositoryHookResult.rejected("❌ 빌드 실패", "실패한 빌드: ${failed.join(', ')}")
 }
 
 return RepositoryHookResult.accepted()
