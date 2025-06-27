@@ -1,42 +1,49 @@
 import groovy.json.JsonSlurper
 import com.atlassian.bitbucket.hook.repository.RepositoryHookResult
 
-// PR 정보
+// PR에서 커밋 ID 추출
 def commitId = mergeRequest.pullRequest.fromRef.latestCommit
+log.warn("📌 PR 대상 커밋 ID: ${commitId}")
 
-// 필수 빌드 Key 3개
-def requiredBuildKeys = ["qa", "codemind", "changeminer"]
-
-// REST API 호출
+// Build Status API 호출
 def url = "https://bitbucket.techartist.xyz/rest/build-status/1.0/commits/${commitId}"
 def conn = new URL(url).openConnection()
 conn.setRequestProperty("Authorization", "Basic " + "devadmin:tkatjdsfmi1!".bytes.encodeBase64().toString())
+def parsed = new JsonSlurper().parseText(conn.inputStream.text)
 
-def text = conn.inputStream.text
-def parsed = new JsonSlurper().parseText(text)
-
-// 상태 맵 생성
+// 빌드 상태 맵
 def statusMap = [:]
+def buildKeys = []
 
-// 응답이 Map이고, values 필드가 리스트면 처리
+// 응답 파싱 및 상태 수집
 if (parsed instanceof Map && parsed.containsKey("values") && parsed["values"] instanceof List) {
     (parsed["values"] as List).each { rawEntry ->
         def entry = rawEntry as Map
-        if (entry["key"] in requiredBuildKeys) {
-            statusMap[entry["key"]] = entry["state"]
+        def key = entry["key"]
+        def state = entry["state"]
+
+        if (key && state) {
+            statusMap[key] = state
+            buildKeys << key
+            log.warn("🟢 빌드 상태 수신 - ${key} : ${state}")
         }
     }
+} else {
+    log.warn("⚠️ Build Status API 응답 형식이 예상과 다릅니다: ${parsed.getClass().name}")
 }
 
-// 누락, 실패 검사
-def missing = requiredBuildKeys - statusMap.keySet()
+// 조건 검사
 def failed = statusMap.findAll { k, v -> v != "SUCCESSFUL" }.keySet()
 
-if (missing) {
-    return RepositoryHookResult.rejected("❌ 빌드 누락", "필수 빌드가 누락됨: ${missing.join(', ')}")
+if (buildKeys.size() < 3) {
+    log.warn("❌ 등록된 빌드 수 부족: ${buildKeys.size()}개")
+    return RepositoryHookResult.rejected("❌ 빌드 부족", "등록된 빌드 수가 3개 미만입니다.")
 }
 if (failed) {
-    return RepositoryHookResult.rejected("❌ 빌드 실패", "실패한 빌드: ${failed.join(', ')}")
+    log.warn("❌ 실패한 빌드: ${failed.join(', ')}")
+    log.warn("📋 전체 빌드 상태: ${statusMap}")
+    return RepositoryHookResult.rejected("❌ 빌드 실패", "성공하지 못한 빌드: ${failed.join(', ')}")
 }
 
+log.warn("✅ 모든 빌드가 성공 상태이며, 총 ${buildKeys.size()}개 빌드가 등록됨")
 return RepositoryHookResult.accepted()
